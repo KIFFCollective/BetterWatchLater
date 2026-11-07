@@ -1,4 +1,20 @@
-# Better Watch Later
+<p align="center">
+  <img src="icons/icon-128.png" alt="Better Watch Later icon: a clock with a tick" width="96" height="96">
+</p>
+
+<h1 align="center">Better Watch Later</h1>
+
+<p align="center">
+  <a href="https://addons.mozilla.org/firefox/addon/better-watch-later/"><img src="https://img.shields.io/amo/v/better-watch-later?label=firefox%20add-on&logo=firefoxbrowser" alt="Firefox add-on version"></a>
+  <a href="https://addons.mozilla.org/firefox/addon/better-watch-later/"><img src="https://img.shields.io/amo/users/better-watch-later?logo=firefoxbrowser" alt="Firefox users"></a>
+  <a href="https://github.com/KIFFCollective/BetterWatchLater/releases/latest"><img src="https://img.shields.io/github/v/release/KIFFCollective/BetterWatchLater?logo=github" alt="Latest release"></a>
+  <a href="https://github.com/KIFFCollective/BetterWatchLater/actions/workflows/release.yml"><img src="https://img.shields.io/github/actions/workflow/status/KIFFCollective/BetterWatchLater/release.yml?label=release" alt="Release workflow status"></a>
+  <a href="LICENSE.md"><img src="https://img.shields.io/github/license/KIFFCollective/BetterWatchLater" alt="License: GPL-3.0"></a>
+</p>
+
+<p align="center">
+  <a href="https://addons.mozilla.org/firefox/addon/better-watch-later/"><img src="https://blog.mozilla.org/addons/files/2020/04/get-the-addon-fx-apr-2020.svg" alt="Get the add-on for Firefox" height="60"></a>
+</p>
 
 A small Chrome and Firefox extension that makes YouTube's Watch Later page easier to manage.
 
@@ -20,7 +36,9 @@ All of this only appears on the Watch Later page (`youtube.com/playlist?list=WL`
 
 **Chrome, Edge, Brave:** open `chrome://extensions`, turn on Developer mode, click "Load unpacked" and pick this folder.
 
-**Firefox (128 or newer):** open `about:debugging#/runtime/this-firefox`, click "Load Temporary Add-on" and pick `manifest.json`. Temporary add-ons disappear when Firefox restarts. To keep it installed, sign it (free, unlisted) at [addons.mozilla.org](https://addons.mozilla.org/developers/). If nothing shows up on YouTube, check the extension's Permissions tab in `about:addons` and allow youtube.com.
+**Firefox (128 or newer):** install it from [addons.mozilla.org](https://addons.mozilla.org/firefox/addon/better-watch-later/). If nothing shows up on YouTube, check the extension's Permissions tab in `about:addons` and allow youtube.com.
+
+To try out a local copy in Firefox instead, open `about:debugging#/runtime/this-firefox`, click "Load Temporary Add-on" and pick `manifest.json`. Temporary add-ons disappear when Firefox restarts.
 
 ## How it works
 
