@@ -33,26 +33,43 @@ These endpoints are not an official, documented API. If YouTube changes them, re
 
 ## Release management
 
-Releases are made by GitHub Actions (`.github/workflows/release.yml`) whenever a version tag is pushed.
+Releases are fully automated. You write the changelog entry and run one command. GitHub creates the release and submits it to addons.mozilla.org.
 
-To make a release:
+### Making a release
 
-1. Add an entry for the new version at the top of `CHANGELOG.md`, with a heading like `## [0.1.2] - 2026-11-01`.
-2. Change `"version"` in `manifest.json` to the same number.
-3. Commit, then tag and push:
+1. Make sure your changes are committed on `main`.
+2. At the top of `CHANGELOG.md`, add an entry for the new version with a heading like `## [0.1.4] - 2026-12-01`. At the bottom, add its compare link, like the ones already there.
+3. In Git Bash, run:
 
    ```
-   git tag -a v0.1.2 -m "Better Watch Later 0.1.2"
-   git push origin main v0.1.2
+   .github/scripts/release.sh 0.1.4
    ```
 
-GitHub then creates a release titled "Better Watch Later 0.1.2", uses that version's changelog entry as the release notes, and attaches `better-watch-later-0.1.2.zip`, ready to upload to addons.mozilla.org. The zip only holds `manifest.json`, `src/`, `icons/` and `LICENSE.md`.
+   The script checks that you're on an up-to-date `main` with no stray changes, that the version is new and higher than the last one, and that the changelog has an entry and a link for it. It sets the version in `manifest.json`, shows you the release notes and asks before doing anything. Then it commits, tags and pushes. If a check fails, it tells you what to fix and changes nothing.
+4. Watch the run under the **Actions** tab on GitHub. It does two things:
+   - Creates a GitHub release with the changelog entry as notes and `better-watch-later-0.1.4.zip` attached. The zip only holds `manifest.json`, `src/`, `icons/` and `LICENSE.md`.
+   - Submits that same zip to addons.mozilla.org as a new version, with the changelog entry as release notes. Mozilla then reviews it, which usually takes minutes to hours. Mozilla emails you when it is live.
 
-The release stops with an error in the Actions tab if `CHANGELOG.md` has no entry for the version, or if the `manifest.json` version doesn't match the tag.
+Version numbers follow [Semantic Versioning](https://semver.org/). For a bug fix, bump the last number (0.1.3 → 0.1.4). For new features, bump the middle one (0.1.4 → 0.2.0).
 
-To make a release for a tag that already exists, go to **Actions → Release → Run workflow**, keep the branch on `main` and enter the tag (for example `v0.1.1`).
+### If something fails
 
-To preview the release notes on your own machine, run `.github/scripts/changelog-section.sh 0.1.2`.
+- **The GitHub release failed.** Read the error in the Actions log. The usual causes are a missing changelog entry or a `manifest.json` version that doesn't match the tag. The script should catch both before you push.
+- **The Mozilla submission failed.** The GitHub release is already done. If the log says the version already exists, Mozilla has it and there's nothing to do. If it says the keys are missing or invalid, see below. Otherwise, fix the cause and click **Re-run failed jobs** on the run.
+- **You need to re-run a release for a tag that already exists.** Go to **Actions → Release → Run workflow**, keep the branch on `main` and enter the tag (for example `v0.1.3`). Only tick "Also submit to addons.mozilla.org" if Mozilla doesn't have that version yet.
+
+To preview a version's release notes on your own machine, run `.github/scripts/changelog-section.sh 0.1.4`.
+
+### Mozilla API keys
+
+The Mozilla job signs in with an API key stored as two repository secrets, `AMO_JWT_ISSUER` and `AMO_JWT_SECRET`. Mozilla keys don't expire, but if they're revoked or lost:
+
+1. Go to https://addons.mozilla.org/developers/addon/api/key/ and generate new credentials.
+2. On GitHub, go to the repository's **Settings → Secrets and variables → Actions**. Set `AMO_JWT_ISSUER` to the "JWT issuer" value and `AMO_JWT_SECRET` to the "JWT secret" value.
+
+### Things that must not change
+
+- `browser_specific_settings.gecko.id` in `manifest.json` (`betterwatchlater@kiff-ii`). This is the add-on's permanent ID on addons.mozilla.org. It still says `kiff-ii` from the project's old name, and that is fine. If it changed, Mozilla would treat the upload as a different add-on, and existing users would stop getting updates.
 
 ## Built with AI
 

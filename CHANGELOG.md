@@ -4,6 +4,16 @@ All notable changes to Better Watch Later are listed here, newest first.
 
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and version numbers follow [Semantic Versioning](https://semver.org/).
 
+## [0.1.3] - 2026-11-07
+
+Maintenance release. The extension itself is unchanged.
+
+### Changed
+
+- The project has moved to https://github.com/KIFFCollective/BetterWatchLater. The add-on's homepage link points there now.
+- New versions are now submitted to addons.mozilla.org automatically when a release is made.
+- Releases are made with one command, `.github/scripts/release.sh`, which checks everything before tagging.
+
 ## [0.1.2] - 2026-10-23
 
 ### Added
@@ -31,6 +41,7 @@ First release, submitted to addons.mozilla.org.
 - Firefox data collection declaration (`none`), required by addons.mozilla.org.
 - Link to the source code on the add-on's page.
 
-[0.1.2]: https://github.com/KIFF-II/BetterWatchLater/compare/v0.1.1...v0.1.2
-[0.1.1]: https://github.com/KIFF-II/BetterWatchLater/compare/v0.1.0...v0.1.1
-[0.1.0]: https://github.com/KIFF-II/BetterWatchLater/releases/tag/v0.1.0
+[0.1.3]: https://github.com/KIFFCollective/BetterWatchLater/compare/v0.1.2...v0.1.3
+[0.1.2]: https://github.com/KIFFCollective/BetterWatchLater/compare/v0.1.1...v0.1.2
+[0.1.1]: https://github.com/KIFFCollective/BetterWatchLater/compare/v0.1.0...v0.1.1
+[0.1.0]: https://github.com/KIFFCollective/BetterWatchLater/releases/tag/v0.1.0

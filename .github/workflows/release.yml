@@ -1,9 +1,19 @@
-# Creates a GitHub release whenever a version tag (like v0.1.2) is pushed.
-# The release notes are that version's entry in CHANGELOG.md, and the
-# extension is attached as a zip ready to upload to addons.mozilla.org.
+# Runs whenever a version tag (like v0.1.3) is pushed. Normally you push the
+# tag with .github/scripts/release.sh, which checks everything first.
 #
-# It can also be run by hand from the Actions tab, for tags that were pushed
-# before this workflow existed.
+# Two jobs:
+#   1. release  - creates the GitHub release, with that version's entry in
+#                 CHANGELOG.md as the notes and the extension zip attached.
+#   2. amo      - submits the same zip to addons.mozilla.org (AMO) as a new
+#                 listed version. Needs the AMO_JWT_ISSUER and AMO_JWT_SECRET
+#                 repository secrets (see README, "Mozilla API keys").
+#
+# They are separate so a Mozilla problem can't stop the GitHub release. If the
+# amo job fails, fix the cause and use "Re-run failed jobs" on the run.
+#
+# It can also be run by hand from the Actions tab for a tag that already
+# exists. Mozilla submission is off by default for hand runs, because Mozilla
+# rejects any version number it has seen before.
 
 name: Release
 
@@ -14,17 +24,22 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: "Existing tag to release, for example v0.1.1"
+        description: "Existing tag to release, for example v0.1.3"
         required: true
+      submit_to_amo:
+        description: "Also submit to addons.mozilla.org (only if Mozilla doesn't have this version yet)"
+        type: boolean
+        default: false
 
 permissions:
   contents: write  # needed to create the release
 
+env:
+  TAG: ${{ inputs.tag || github.ref_name }}
+
 jobs:
   release:
     runs-on: ubuntu-latest
-    env:
-      TAG: ${{ inputs.tag || github.ref_name }}
     steps:
       # On a tag push this is the tagged commit. On a hand run it's the branch
       # you picked (normally main), which has the changelog for every version.
@@ -35,7 +50,7 @@ jobs:
 
       - name: Read this version's notes from CHANGELOG.md
         run: |
-          version="${TAG#v}"   # v0.1.1 -> 0.1.1
+          version="${TAG#v}"   # v0.1.3 -> 0.1.3
           .github/scripts/changelog-section.sh "$version" > release-notes.md
           cat release-notes.md
 
@@ -45,7 +60,7 @@ jobs:
         run: |
           manifest_version=$(git show "$TAG:manifest.json" | jq -r .version)
           if [ "$manifest_version" != "${TAG#v}" ]; then
-            echo "Tag is $TAG but manifest.json says $manifest_version." >&2
+            echo "::error::Tag is $TAG but manifest.json says $manifest_version."
             exit 1
           fi
 
@@ -73,3 +88,71 @@ jobs:
             --title "Better Watch Later ${TAG#v}" \
             --notes-file release-notes.md \
             --verify-tag
+
+      # Hand the exact zip and notes to the amo job, so Mozilla gets the same
+      # files as the GitHub release.
+      - name: Pass the zip and notes to the Mozilla job
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-files
+          path: |
+            better-watch-later-*.zip
+            release-notes.md
+          retention-days: 7
+
+  amo:
+    needs: release
+    if: github.event_name == 'push' || inputs.submit_to_amo
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    env:
+      # web-ext reads these itself, which keeps them off the command line.
+      WEB_EXT_API_KEY: ${{ secrets.AMO_JWT_ISSUER }}
+      WEB_EXT_API_SECRET: ${{ secrets.AMO_JWT_SECRET }}
+    steps:
+      - name: Check the Mozilla API keys are set up
+        run: |
+          if [ -z "$WEB_EXT_API_KEY" ] || [ -z "$WEB_EXT_API_SECRET" ]; then
+            echo "::error::The AMO_JWT_ISSUER and AMO_JWT_SECRET secrets are missing. Create keys at https://addons.mozilla.org/developers/addon/api/key/ and add them under Settings > Secrets and variables > Actions. Then use 'Re-run failed jobs'. The GitHub release itself is already done."
+            exit 1
+          fi
+
+      - name: Get the zip and notes from the release job
+        uses: actions/download-artifact@v4
+        with:
+          name: release-files
+
+      - name: Unpack the zip
+        run: |
+          mkdir extension
+          unzip -q "better-watch-later-${TAG#v}.zip" -d extension
+          ls -R extension
+
+      # AMO shows release notes as plain text, so turn the changelog's
+      # "### Added" headings into "Added:" lines.
+      - name: Write the Mozilla release notes
+        run: |
+          sed -E 's/^### (.*)$/\1:/' release-notes.md > amo-notes.txt
+          jq -n --rawfile notes amo-notes.txt \
+            '{version: {release_notes: {"en-US": $notes}}}' > amo-metadata.json
+          cat amo-metadata.json
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+
+      # --approval-timeout 0: stop once Mozilla has accepted the upload, rather
+      # than waiting for its review. The new version goes live when review ends.
+      - name: Submit to addons.mozilla.org
+        run: |
+          npx --yes web-ext@10.8.0 sign \
+            --source-dir extension \
+            --artifacts-dir web-ext-artifacts \
+            --channel listed \
+            --amo-metadata amo-metadata.json \
+            --approval-timeout 0 \
+          || {
+            echo "::error::Mozilla submission failed. See the log above. If it says the version already exists, Mozilla already has ${TAG#v} and there is nothing to do. Otherwise fix the cause and use 'Re-run failed jobs'."
+            exit 1
+          }
