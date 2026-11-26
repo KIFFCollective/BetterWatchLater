@@ -397,6 +397,27 @@
     return isWatchLaterPage() && thumbnail.closest("ytd-playlist-video-renderer") !== null;
   }
 
+  // Watch Later only exists while you're signed in, so signed-out visitors get
+  // no clock. YouTube keeps a LOGGED_IN flag in ytcfg; if it's missing we fall
+  // back to looking for the avatar button in the top bar.
+  function isSignedIn() {
+    const flag = window.ytcfg?.get?.("LOGGED_IN") ?? window.ytcfg?.data_?.LOGGED_IN;
+    if (typeof flag === "boolean") return flag;
+    return document.querySelector("ytd-topbar-menu-button-renderer #avatar-btn, button#avatar-btn") !== null;
+  }
+
+  // The thumbnail sits inside the video's link, and YouTube also listens for
+  // mousedown and pointerdown on it. Keep all of these on our button.
+  function swallowEvent(event) {
+    event.preventDefault();
+    event.stopImmediatePropagation();
+  }
+
+  function clockVideoId(thumbnail) {
+    if (!isSignedIn() || isOnWatchLaterPage(thumbnail)) return null;
+    return thumbnailVideoId(thumbnail);
+  }
+
   function svgIcon(className, ...shapes) {
     const svg = document.createElementNS(SVG_NS, "svg");
     svg.setAttribute("class", className);
@@ -420,6 +441,8 @@
       svgIcon("wlt-wl-icon wlt-wl-icon-tick",
         ["path", { d: "M5.5 12.5l4 4 9-9" }]),
     );
+    button.addEventListener("mousedown", swallowEvent);
+    button.addEventListener("pointerdown", swallowEvent);
     button.addEventListener("click", onClockClick);
     showAddedState(button, false);
     return button;
@@ -447,7 +470,7 @@
 
   function decorateThumbnail(thumbnail) {
     let button = thumbnail.querySelector(":scope > .wlt-wl-button");
-    const videoId = isOnWatchLaterPage(thumbnail) ? null : thumbnailVideoId(thumbnail);
+    const videoId = clockVideoId(thumbnail);
 
     if (!videoId) {
       button?.remove();
@@ -476,8 +499,7 @@
 
   function onClockClick(event) {
     // Stop the click from reaching YouTube and opening the video.
-    event.preventDefault();
-    event.stopPropagation();
+    swallowEvent(event);
 
     const button = event.currentTarget;
     const thumbnail = button.wltThumbnail ?? button.parentElement;
@@ -536,7 +558,7 @@
   function syncPreviewButton() {
     const preview = document.querySelector(PREVIEW_SELECTOR);
     const thumbnail = preview && hoveredThumbnail?.isConnected ? hoveredThumbnail : null;
-    const videoId = thumbnail && !isOnWatchLaterPage(thumbnail) ? thumbnailVideoId(thumbnail) : null;
+    const videoId = thumbnail ? clockVideoId(thumbnail) : null;
 
     if (!videoId) {
       previewButton?.remove();

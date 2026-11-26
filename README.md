@@ -16,7 +16,7 @@
   <a href="https://addons.mozilla.org/firefox/addon/better-watch-later/"><img src="https://blog.mozilla.org/addons/files/2020/04/get-the-addon-fx-apr-2020.svg" alt="Get the add-on for Firefox" height="60"></a>
 </p>
 
-A small Chrome and Firefox extension that makes YouTube's Watch Later page easier to manage.
+A small Chrome and Firefox extension that makes YouTube's Watch Later list easier to fill and manage.
 
 ## Why it exists
 
@@ -29,8 +29,9 @@ Now it exists and we use it every day. That's Good!
 - **One-click remove.** Every video gets a ✕ button. Click it and the video is gone, with an Undo button in case you slip.
 - **Remove watched videos.** Scans the whole playlist (not just what's loaded on screen), finds videos you've watched past a percentage you choose (default 90%), shows you what it found and asks before removing anything. It downloads a backup list of those videos first, so nothing is lost for good.
 - **Shuffle.** Shows the loaded videos in random order. This only changes what you see; reload to get YouTube's order back.
+- **One-click add.** Every video thumbnail on YouTube gets a small clock button in its top-right corner. Click it and the video is added to Watch Later, with an Undo button in case you slip. YouTube's own "Save to Watch Later" option is sometimes missing from a page or grid. This one is always in the same place.
 
-All of this only appears on the Watch Later page (`youtube.com/playlist?list=WL`).
+The clock button appears on video thumbnails all over YouTube, while you're signed in: the home page, subscriptions, search, channel pages, playlists, history and the list next to the video you're watching. Everything else only appears on the Watch Later page (`youtube.com/playlist?list=WL`).
 
 ## Install
 
@@ -42,12 +43,12 @@ To try out a local copy in Firefox instead, open `about:debugging#/runtime/this-
 
 ## How it works
 
-- `src/api.js` calls the same internal YouTube endpoints the website itself uses when you remove a video from the three-dot menu.
-- `src/content.js` adds the buttons and the panel, and keeps up with YouTube's page changes.
+- `src/api.js` calls the same internal YouTube endpoints the website itself uses when you add or remove a video from the three-dot menu.
+- `src/content.js` adds the ✕ buttons and the panel on the Watch Later page, adds the clock button to thumbnails everywhere else, and keeps up with YouTube's page changes.
 - `src/styles.css` uses YouTube's own colours, so it follows light and dark mode.
 - `icons/icon.svg` is the icon's source. Chrome can't use SVG icons, so the manifest points at PNG copies in `icons/`. If you change the SVG, export it again at 16, 32, 48, 96 and 128 pixels with the same file names.
 
-These endpoints are not an official, documented API. If YouTube changes them, removing videos may stop working until the extension is updated. When that happens you'll see an error message; it won't remove anything silently.
+These endpoints are not an official, documented API. If YouTube changes them, adding and removing videos may stop working until the extension is updated. When that happens you'll see an error message; it won't add or remove anything silently. If YouTube changes how its pages are built, the clock button may stop showing on some thumbnails until the extension is updated.
 
 ## Release management
 
