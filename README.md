@@ -50,6 +50,20 @@ To try out a local copy in Firefox instead, open `about:debugging#/runtime/this-
 
 These endpoints are not an official, documented API. If YouTube changes them, adding and removing videos may stop working until the extension is updated. When that happens you'll see an error message; it won't add or remove anything silently. If YouTube changes how its pages are built, the clock button may stop showing on some thumbnails until the extension is updated.
 
+## Checks
+
+Every pull request, and every push to `main`, runs these on GitHub. They publish nothing.
+
+| Check | Run it yourself |
+|---|---|
+| JavaScript files parse and `manifest.json` is valid | `node tests/check-syntax.mjs` |
+| Clock button tests on a mock YouTube page, in Chrome and Firefox | `node tests/run.mjs chrome` or `firefox` |
+| Trial build of the zip: nothing missing, nothing extra | `.github/scripts/build-zip.sh HEAD trial.zip`, then `node tests/check-zip.mjs trial.zip` |
+
+You need Node 22 or newer. If the browser isn't on your PATH, set `BROWSER_PATH` to it, or use `node tests/run.mjs --serve` and open the address it prints.
+
+The mock tests cover the clock button: signed out, clicks, Undo, refused saves, YouTube reusing thumbnails and the hover preview. They don't cover the ✕ buttons, "Remove watched…" or Shuffle. They also can't tell whether live YouTube still matches the mock, so try changes on youtube.com too.
+
 ## Release management
 
 Releases are fully automated. You write the changelog entry and run one command. GitHub creates the release and submits it to addons.mozilla.org.

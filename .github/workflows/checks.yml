@@ -1,0 +1,49 @@
+# Runs on every pull request, and on pushes to main. It publishes nothing and
+# needs no secrets.
+
+name: Checks
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  syntax:
+    name: JavaScript syntax
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+      - run: node tests/check-syntax.mjs
+
+  mock-tests:
+    name: Mock tests (${{ matrix.browser }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        browser: [chrome, firefox]
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+      - run: node tests/run.mjs ${{ matrix.browser }}
+
+  trial-build:
+    name: Trial build of the zip
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+      - run: .github/scripts/build-zip.sh HEAD better-watch-later-trial.zip
+      - run: node tests/check-zip.mjs better-watch-later-trial.zip
