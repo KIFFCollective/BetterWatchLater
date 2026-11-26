@@ -93,7 +93,9 @@ ytd-playlist-video-renderer.wlt-removed {
   position: fixed;
   left: 16px;
   bottom: 16px;
-  z-index: 2001;
+  /* YouTube's side menu and top bar sit at z-index 2000-2300, so stay well
+     above them or their text draws over the toast. */
+  z-index: 9999;
   display: flex;
   align-items: center;
   gap: 16px;
@@ -103,6 +105,7 @@ ytd-playlist-video-renderer.wlt-removed {
   background: #f1f1f1;
   color: #0f0f0f;
   font: 14px Roboto, Arial, sans-serif;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
 }
 
 .wlt-toast-action {
@@ -127,31 +130,32 @@ ytd-playlist-video-renderer.wlt-removed {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 28px;
-  height: 28px;
+  width: 36px;
+  height: 36px;
   padding: 0;
   border: none;
   border-radius: 50%;
-  background: var(--yt-spec-static-overlay-background-heavy, rgba(0, 0, 0, 0.7));
-  color: var(--yt-spec-static-overlay-text-primary, #fff);
+  background: rgba(0, 0, 0, 0.6);
+  /* A white ring so the button stands out on dark thumbnails too. */
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.9), 0 1px 4px rgba(0, 0, 0, 0.5);
+  color: #fff;
   cursor: pointer;
   pointer-events: auto;
-  opacity: 0.85;
-  transition: right 0.15s, opacity 0.15s, background-color 0.15s;
+  transition: right 0.15s, background-color 0.15s, transform 0.15s;
 }
 
 .wlt-wl-button:hover,
 .wlt-wl-button:focus-visible {
-  opacity: 1;
-  background: rgba(0, 0, 0, 0.9);
+  background: rgba(0, 0, 0, 0.85);
+  transform: scale(1.08);
 }
 
 .wlt-wl-icon {
-  width: 18px;
-  height: 18px;
+  width: 24px;
+  height: 24px;
   fill: none;
   stroke: currentColor;
-  stroke-width: 2;
+  stroke-width: 2.75;
   stroke-linecap: round;
   stroke-linejoin: round;
 }
@@ -166,9 +170,15 @@ ytd-playlist-video-renderer.wlt-removed {
 }
 
 .wlt-wl-button.wlt-wl-added {
-  opacity: 1;
   background: var(--yt-spec-call-to-action, #065fd4);
   cursor: default;
+  transform: none;
+}
+
+/* Hidden while a video preview covers the thumbnail: the preview gets its
+   own button in the same spot (see syncPreviewButton in content.js). */
+.wlt-wl-button.wlt-wl-covered {
+  visibility: hidden;
 }
 
 /* YouTube's own hover buttons (Watch later, Add to queue) sit in the same
@@ -176,14 +186,13 @@ ytd-playlist-video-renderer.wlt-removed {
    both can be seen. */
 yt-thumbnail-view-model:hover:has(yt-thumbnail-hover-overlay-toggle-actions-view-model) > .wlt-wl-button,
 ytd-thumbnail:hover:has(#hover-overlays > *) > .wlt-wl-button {
-  right: 44px;
+  right: 48px;
 }
 
-/* The preview layer is 12px bigger than the thumbnail on every side, so add
-   12px to land in the same spot as the thumbnail's button. */
+/* On a preview, content.js measures the spot and sets top and right itself,
+   so it should jump straight there rather than slide. */
 .wlt-wl-button.wlt-wl-in-preview {
-  top: 18px;
-  right: 56px;
+  transition: background-color 0.15s, transform 0.15s;
 }
 
 /* Shorts thumbnails don't set a position, which the button needs. */

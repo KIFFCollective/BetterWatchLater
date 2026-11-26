@@ -436,7 +436,7 @@
     button.type = "button";
     button.append(
       svgIcon("wlt-wl-icon wlt-wl-icon-clock",
-        ["circle", { cx: "12", cy: "12", r: "8.5" }],
+        ["circle", { cx: "12", cy: "12", r: "8" }],
         ["path", { d: "M12 7.5V12l3 2" }]),
       svgIcon("wlt-wl-icon wlt-wl-icon-tick",
         ["path", { d: "M5.5 12.5l4 4 9-9" }]),
@@ -553,8 +553,38 @@
     }
   }
 
+  // Gap between the button and the thumbnail's top-right corner. When YouTube
+  // has its own hover buttons in that corner, ours sits further left. These
+  // match .wlt-wl-button in styles.css.
+  const CLOCK_INSET = 6;
+  const CLOCK_INSET_BESIDE_YOUTUBE = 48;
+  const YOUTUBE_HOVER_BUTTONS = "yt-thumbnail-hover-overlay-toggle-actions-view-model, #hover-overlays > *";
+
+  // The thumbnail's own button while the preview button stands in for it.
+  let coveredButton = null;
+
+  function setCoveredButton(button) {
+    if (coveredButton === button) return;
+    coveredButton?.classList.remove("wlt-wl-covered");
+    coveredButton = button;
+    coveredButton?.classList.add("wlt-wl-covered");
+  }
+
+  // The preview layer isn't always the same size as the thumbnail, so measure
+  // both and put the button exactly where the thumbnail's one would be.
+  function placePreviewButton(preview, thumbnail) {
+    const p = preview.getBoundingClientRect();
+    const t = thumbnail.getBoundingClientRect();
+    const inset = thumbnail.querySelector(YOUTUBE_HOVER_BUTTONS) ? CLOCK_INSET_BESIDE_YOUTUBE : CLOCK_INSET;
+    previewButton.style.top = `${Math.round(t.top - p.top + CLOCK_INSET)}px`;
+    previewButton.style.right = `${Math.round(p.right - t.right + inset)}px`;
+  }
+
   // While a preview is playing we put a second button on the preview itself,
-  // in the same spot, for the thumbnail the mouse went over.
+  // in the same spot, for the thumbnail the mouse went over. The thumbnail's
+  // own button is hidden meanwhile: the mouse is now over the preview, not the
+  // thumbnail, so that button slides back to the corner and would otherwise
+  // show up as a second clock beside this one.
   function syncPreviewButton() {
     const preview = document.querySelector(PREVIEW_SELECTOR);
     const thumbnail = preview && hoveredThumbnail?.isConnected ? hoveredThumbnail : null;
@@ -562,13 +592,17 @@
 
     if (!videoId) {
       previewButton?.remove();
+      setCoveredButton(null);
       return;
     }
 
     previewButton ??= buildClockButton("wlt-wl-in-preview");
     previewButton.wltThumbnail = thumbnail;
+    // Place it before adding it, so it doesn't visibly slide into position.
+    placePreviewButton(preview, thumbnail);
     if (previewButton.parentElement !== preview) preview.append(previewButton);
     bindButton(previewButton, videoId);
+    setCoveredButton(thumbnail.querySelector(":scope > .wlt-wl-button"));
   }
 
   // Only re-checks a thumbnail when the mouse moves onto a new one, so it
