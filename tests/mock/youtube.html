@@ -1,0 +1,208 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Clock button mock tests</title>
+<!-- A small stand-in for YouTube's markup. Run it with tests/run.mjs. It can't
+     tell you whether live YouTube still looks like this. -->
+<link rel="stylesheet" href="/src/styles.css">
+<style>body{font:14px sans-serif} .card{width:320px;display:inline-block;margin:8px} ytd-thumbnail,yt-thumbnail-view-model{display:block;position:relative;width:320px;height:180px;background:#ccc}</style>
+</head>
+<body>
+<div id="cards">
+  <ytd-video-renderer class="card">
+    <a id="thumbnail" href="/watch?v=AAAAAAAAAAA"><ytd-thumbnail></ytd-thumbnail></a>
+    <span id="video-title">Old layout video</span>
+  </ytd-video-renderer>
+  <yt-lockup-view-model class="card">
+    <div class="content-id-BBBBBBBBBBB">
+      <a class="ytLockupViewModelContentImage" href="/watch?v=BBBBBBBBBBB"><yt-thumbnail-view-model></yt-thumbnail-view-model></a>
+      <span class="ytLockupMetadataViewModelTitle">Lockup video</span>
+    </div>
+  </yt-lockup-view-model>
+</div>
+<pre id="out">running…</pre>
+<script>
+  // Send the results to tests/run.mjs, once.
+  let reported = false;
+  function report(passed, total, lines) {
+    if (reported) return;
+    reported = true;
+    document.getElementById("out").textContent = `${passed}/${total} passed\n` + lines.join("\n");
+    document.title = `RESULT ${passed}/${total}`;
+    fetch("/result", { method: "POST", body: JSON.stringify({ passed, total, lines }) });
+  }
+  // An error in the extension or in a test is a failure, not a hang.
+  window.addEventListener("error", e => report(0, 1, [`FAIL  script error: ${e.message}`]));
+
+  // Stubs: signed out at first, and a fake API.
+  window.__loggedIn = false;
+  window.ytcfg = { get: k => (k === "LOGGED_IN" ? window.__loggedIn : undefined), data_: {} };
+  window.calls = [];
+  window.WatchLaterApi = {
+    addVideos: async ids => { calls.push(["add", ...ids]); },
+    removeVideos: async ids => { calls.push(["remove", ...ids]); },
+  };
+  window.navigations = 0;
+  document.addEventListener("click", e => { if (e.target.closest("a")) { e.preventDefault(); navigations++; } });
+  window.linkDowns = 0;
+  document.querySelectorAll("a").forEach(a => {
+    a.addEventListener("mousedown", () => linkDowns++);
+    a.addEventListener("pointerdown", () => linkDowns++);
+  });
+</script>
+<!-- content.js without api.js: the tests use the fake API above. -->
+<script src="/src/content.js"></script>
+<script>
+  const frame = () => new Promise(r => requestAnimationFrame(() => setTimeout(r, 30)));
+  const results = [];
+  const check = (name, ok) => results.push(`${ok ? "PASS" : "FAIL"}  ${name}`);
+  (async () => {
+    await frame(); await frame();
+    check("signed out: no clocks on any thumbnail", document.querySelectorAll(".wlt-wl-button").length === 0);
+    for (const t of document.querySelectorAll("ytd-thumbnail, yt-thumbnail-view-model")) {
+      t.dispatchEvent(new MouseEvent("mouseover", { bubbles: true }));
+    }
+    await frame();
+    check("signed out: hovering adds no clock", document.querySelectorAll(".wlt-wl-button").length === 0);
+    check("signed out: nothing sent to YouTube", calls.length === 0);
+
+    window.__loggedIn = true;
+    document.dispatchEvent(new Event("yt-navigate-finish"));
+    await frame();
+    const buttons = [...document.querySelectorAll(".wlt-wl-button")];
+    check("signed in: one clock per video (2)", buttons.length === 2);
+    check("clock IDs are right", buttons.map(b => b.dataset.videoId).join() === "AAAAAAAAAAA,BBBBBBBBBBB");
+
+    const b = buttons[0];
+    for (const type of ["pointerdown", "mousedown"]) {
+      const ev = new MouseEvent(type, { bubbles: true, cancelable: true });
+      b.dispatchEvent(ev);
+      check(`${type} is cancelled`, ev.defaultPrevented);
+    }
+    check("mousedown/pointerdown never reach the link", linkDowns === 0);
+
+    b.click(); b.click();
+    await frame();
+    check("click does not navigate", navigations === 0);
+    check("double click saves once, right ID", JSON.stringify(calls) === '[["add","AAAAAAAAAAA"]]');
+    check("button shows tick", b.classList.contains("wlt-wl-added"));
+
+    // Undo, then a save that YouTube refuses.
+    calls.length = 0;
+    document.querySelector(".wlt-toast-action").click();
+    await frame();
+    check("Undo removes the same video", JSON.stringify(calls) === '[["remove","AAAAAAAAAAA"]]');
+    check("Undo clears the tick", !b.classList.contains("wlt-wl-added"));
+
+    const workingAdd = WatchLaterApi.addVideos;
+    WatchLaterApi.addVideos = async () => { throw new Error("refused"); };
+    b.click();
+    await frame();
+    check("refused save clears the tick", !b.classList.contains("wlt-wl-added"));
+    check("refused save says why", document.querySelector(".wlt-toast")?.textContent.includes("refused"));
+    WatchLaterApi.addVideos = workingAdd;
+
+    // YouTube reuses thumbnails: same elements, different video.
+    const lockup = document.querySelector("yt-lockup-view-model");
+    const reused = lockup.querySelector("yt-thumbnail-view-model > .wlt-wl-button");
+    const showVideo = id => {
+      lockup.firstElementChild.className = `content-id-${id}`;
+      lockup.querySelector("a").setAttribute("href", `/watch?v=${id}`);
+    };
+    // Changing the title adds nodes, which is what makes the extension look again.
+    const redraw = async title => {
+      lockup.querySelector(".ytLockupMetadataViewModelTitle").textContent = title;
+      await frame();
+    };
+
+    calls.length = 0;
+    reused.click();
+    await frame();
+    check("lockup video saves", reused.classList.contains("wlt-wl-added"));
+
+    showVideo("CCCCCCCCCCC");
+    await redraw("Another video");
+    check("reused thumbnail: button points at the new video", reused.dataset.videoId === "CCCCCCCCCCC");
+    check("reused thumbnail: old tick is cleared", !reused.classList.contains("wlt-wl-added"));
+    check("reused thumbnail: still only one clock", lockup.querySelectorAll(".wlt-wl-button").length === 1);
+
+    showVideo("BBBBBBBBBBB");
+    await redraw("Lockup video");
+    check("saved video comes back: tick comes back", reused.classList.contains("wlt-wl-added"));
+
+    // Click before the extension has had a chance to notice the swap.
+    calls.length = 0;
+    showVideo("DDDDDDDDDDD");
+    reused.click();
+    await frame();
+    check("click right after reuse saves the video now shown", JSON.stringify(calls) === '[["add","DDDDDDDDDDD"]]');
+
+    // The older layout has no content-id class, only the link.
+    const oldCard = document.querySelector("ytd-video-renderer");
+    oldCard.querySelector("a").setAttribute("href", "/watch?v=EEEEEEEEEEE");
+    calls.length = 0;
+    b.click();
+    await frame();
+    check("old layout reused: click saves the new video", JSON.stringify(calls) === '[["add","EEEEEEEEEEE"]]');
+
+    // A reused thumbnail that now shows a mix has no single video to save.
+    showVideo("RDBBBBBBBBBBB");
+    await redraw("A mix");
+    check("thumbnail reused for a mix: clock is removed", !lockup.querySelector(".wlt-wl-button"));
+    showVideo("BBBBBBBBBBB");
+    await redraw("Lockup video");
+
+    window.__loggedIn = false;
+    document.dispatchEvent(new Event("yt-navigate-finish"));
+    await frame();
+    check("signing out removes existing clocks", document.querySelectorAll(".wlt-wl-button").length === 0);
+
+    // Fallback when ytcfg has no flag: avatar button.
+    window.__loggedIn = undefined;
+    const avatar = document.createElement("button"); avatar.id = "avatar-btn"; document.body.append(avatar);
+    document.dispatchEvent(new Event("yt-navigate-finish"));
+    await frame();
+    check("no LOGGED_IN flag + avatar present: clocks shown", document.querySelectorAll(".wlt-wl-button").length === 2);
+
+    // Size and contrast.
+    const own = document.querySelector("yt-thumbnail-view-model > .wlt-wl-button");
+    check("clock is 36px", own.getBoundingClientRect().width === 36);
+    check("icon lines are 2.75 thick", getComputedStyle(own.querySelector(".wlt-wl-icon")).strokeWidth === "2.75px");
+
+    // Preview: one clock only, in the same spot as the thumbnail's.
+    const thumb = own.parentElement;
+    const tr = thumb.getBoundingClientRect();
+    const preview = document.createElement("div");
+    preview.setAttribute("data-ytd-video-preview-hit-box", "");
+    preview.className = "ytdVideoPreviewPortalActive";
+    // Deliberately not the old "12px bigger" guess, to prove we measure.
+    Object.assign(preview.style, { position: "absolute", zIndex: 5, background: "rgba(0,0,0,.2)",
+      left: `${tr.left + scrollX - 20}px`, top: `${tr.top + scrollY - 9}px`, width: `${tr.width + 31}px`, height: `${tr.height + 18}px` });
+    document.body.append(preview);
+    thumb.dispatchEvent(new MouseEvent("mouseover", { bubbles: true }));
+    await frame(); await frame();
+    const pb = preview.querySelector(".wlt-wl-button");
+    check("preview gets a clock", !!pb);
+    check("thumbnail's own clock is hidden under the preview", getComputedStyle(own).visibility === "hidden");
+    const visible = [...document.querySelectorAll(".wlt-wl-button")].filter(b => getComputedStyle(b).visibility !== "hidden" && b.closest("yt-lockup-view-model, [data-ytd-video-preview-hit-box]"));
+    check("only one visible clock for that video", visible.length === 1);
+    const a = pb.getBoundingClientRect(), o = own.getBoundingClientRect();
+    check("preview clock sits exactly where the thumbnail's was", Math.abs(a.left - o.left) <= 1 && Math.abs(a.top - o.top) <= 1);
+    preview.classList.remove("ytdVideoPreviewPortalActive");
+    document.dispatchEvent(new Event("yt-navigate-finish"));
+    await frame();
+    check("preview gone: thumbnail's clock shows again", getComputedStyle(own).visibility === "visible" && !pb.isConnected);
+    preview.remove();
+
+    // Toast sits above YouTube's side menu (z-index up to ~2300).
+    own.click();
+    await frame();
+    const toast = document.querySelector(".wlt-toast");
+    check("toast z-index is above YouTube's side menu", Number(getComputedStyle(toast).zIndex) > 2300);
+
+    report(results.filter(r => r.startsWith("PASS")).length, results.length, results);
+  })().catch(e => report(0, results.length + 1, [...results, `FAIL  test stopped: ${e.message}`]));
+</script>
+</body>
+</html>
