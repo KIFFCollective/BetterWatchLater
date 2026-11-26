@@ -78,7 +78,9 @@ Releases are fully automated. You write the changelog entry and run one command.
    .github/scripts/release.sh 0.1.4
    ```
 
-   The script checks that you're on an up-to-date `main` with no stray changes, that the version is new and higher than the last one, and that the changelog has an entry and a link for it. It sets the version in `manifest.json`, shows you the release notes and asks before doing anything. Then it commits, tags and pushes. If a check fails, it tells you what to fix and changes nothing.
+   The script checks that you're on an up-to-date `main` with no stray changes, that the version is new and higher than the last one, and that the changelog has an entry and a link for it. It shows you the release notes and asks before doing anything. Only after you say yes does it set the version in `manifest.json`, commit, tag and push. If a check fails or you say no, it tells you so and changes nothing.
+
+   To practise first, run `.github/scripts/release.sh --dry-run 0.1.4`. It runs the same checks, shows the notes and builds the zip the release would make, then stops without changing any files or pushing anything.
 4. Watch the run under the **Actions** tab on GitHub. It does two things:
    - Creates a GitHub release with the changelog entry as notes and `better-watch-later-0.1.4.zip` attached. The zip only holds `manifest.json`, `src/`, `icons/` and `LICENSE.md`.
    - Submits that same zip to addons.mozilla.org as a new version, with the changelog entry as release notes. Mozilla then reviews it, which usually takes minutes to hours. Mozilla emails you when it is live.

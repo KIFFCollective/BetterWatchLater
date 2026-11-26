@@ -4,6 +4,10 @@
 # Mozilla submission, see .github/workflows/release.yml).
 #
 # Usage: .github/scripts/release.sh 0.1.3
+#        .github/scripts/release.sh --dry-run 0.1.3
+#
+# --dry-run runs every check, shows the release notes and builds the zip the
+# release would make, then stops. It changes no files and pushes nothing.
 #
 # Before running it, add the new version's entry at the top of CHANGELOG.md and
 # its compare link at the bottom. Those edits can be uncommitted; this script
@@ -15,8 +19,18 @@ set -euo pipefail
 
 die() { echo "Error: $*" >&2; exit 1; }
 
-[ $# -eq 1 ] || die "give the new version, for example: $0 0.1.3"
-version="$1"
+dry_run=false
+args=()
+for arg in "$@"; do
+  case "$arg" in
+    --dry-run) dry_run=true ;;
+    -*) die "unknown option '$arg'. The only option is --dry-run." ;;
+    *) args+=("$arg") ;;
+  esac
+done
+
+[ ${#args[@]} -eq 1 ] || die "give the new version, for example: $0 0.1.3 (or $0 --dry-run 0.1.3)"
+version="${args[0]}"
 tag="v$version"
 [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || die "'$version' doesn't look like a version number (expected something like 0.1.3)."
 
@@ -61,9 +75,53 @@ grep -qF "[$version]: " CHANGELOG.md \
 
 # --- Manifest --------------------------------------------------------------
 
+# The new manifest goes into a temporary file first. manifest.json itself only
+# changes after you say yes, so stopping (or --dry-run) leaves nothing behind.
+work=$(mktemp -d)
+trap 'rm -rf "$work"' EXIT
+
 # Matches "version" but not "manifest_version" (that one has _ before version).
-sed -i -E "s/(\"version\": *\")[^\"]*\"/\1$version\"/" manifest.json
-grep -qE "\"version\": *\"$version\"" manifest.json || die "couldn't set the version in manifest.json. Check it by hand."
+sed -E "s/(\"version\": *\")[^\"]*\"/\1$version\"/" manifest.json > "$work/manifest.json"
+grep -qE "\"version\": *\"$version\"" "$work/manifest.json" || die "couldn't set the version in manifest.json. Check it by hand."
+
+# --- Dry run ----------------------------------------------------------------
+
+if $dry_run; then
+  # Build the zip from a throwaway commit: HEAD plus the new manifest, made
+  # with a temporary index so the working folder and branch stay untouched.
+  # It's the same build-zip.sh the release workflow runs on the tag.
+  export GIT_INDEX_FILE="$work/index"
+  git read-tree HEAD
+  blob=$(git hash-object -w "$work/manifest.json")
+  git update-index --cacheinfo "100644,$blob,manifest.json"
+  trial_commit=$(git commit-tree "$(git write-tree)" -p HEAD -m "Dry run of $version")
+  unset GIT_INDEX_FILE
+
+  zip="better-watch-later-$version-dry-run.zip"
+  .github/scripts/build-zip.sh "$trial_commit" "$work/$zip"
+  echo
+  echo "Files in $zip:"
+  if command -v node >/dev/null; then
+    node tests/check-zip.mjs "$work/$zip" || die "the zip check failed (see above)."
+    zip_check="checked: nothing missing or extra"
+  else
+    git ls-tree -r --name-only "$trial_commit" manifest.json src icons LICENSE.md
+    zip_check="not checked, Node isn't installed"
+  fi
+
+  echo
+  echo "Dry run for $version (previous: ${latest:-none}). All checks passed."
+  echo "Release notes:"
+  echo "--------------------------------------------------"
+  printf '%s\n' "$notes"
+  echo "--------------------------------------------------"
+  echo "manifest.json would change to: $(grep -oE '"version": *"[^"]*"' "$work/manifest.json")"
+  echo "Zip the release would build: $zip ($zip_check)"
+  echo
+  echo "Nothing was committed, tagged or pushed, and no files changed."
+  echo "To release for real, run: $0 $version"
+  exit 0
+fi
 
 # --- Confirm and go ---------------------------------------------------------
 
@@ -78,10 +136,11 @@ echo "This commits CHANGELOG.md and manifest.json, tags $tag and pushes both."
 echo "GitHub Actions then creates the release and submits it to Mozilla."
 read -r -p "Go ahead? [y/N] " answer
 if [[ ! "$answer" =~ ^[Yy]$ ]]; then
-  echo "Stopped. manifest.json now says $version; undo with: git checkout manifest.json"
+  echo "Stopped. Nothing was changed."
   exit 1
 fi
 
+cp "$work/manifest.json" manifest.json
 git add CHANGELOG.md manifest.json
 git commit -m "Release $version"
 git tag -a "$tag" -m "Better Watch Later $version"
