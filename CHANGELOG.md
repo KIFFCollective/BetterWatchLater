@@ -4,6 +4,16 @@ All notable changes to Better Watch Later are listed here, newest first.
 
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and version numbers follow [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Added
+
+- Clock button in the top-right corner of video thumbnails across YouTube, for one-click adding to Watch Later, with Undo. It shows on the home page, subscriptions, search, channel pages, playlists, history and the list next to the video you're watching. We added it because YouTube's own option is sometimes missing from a video page or grid.
+
+### Changed
+
+- The extension now runs on all of YouTube, not just the Watch Later page. Only the clock button shows elsewhere. Everything else still only appears on the Watch Later page.
+
 ## [0.1.3] - 2026-11-07
 
 Maintenance release. The extension itself is unchanged.
@@ -41,6 +51,7 @@ First release, submitted to addons.mozilla.org.
 - Firefox data collection declaration (`none`), required by addons.mozilla.org.
 - Link to the source code on the add-on's page.
 
+[Unreleased]: https://github.com/KIFFCollective/BetterWatchLater/compare/v0.1.3...HEAD
 [0.1.3]: https://github.com/KIFFCollective/BetterWatchLater/compare/v0.1.2...v0.1.3
 [0.1.2]: https://github.com/KIFFCollective/BetterWatchLater/compare/v0.1.1...v0.1.2
 [0.1.1]: https://github.com/KIFFCollective/BetterWatchLater/compare/v0.1.0...v0.1.1
